@@ -45,17 +45,18 @@ COPY ./src/ /src
 RUN gleam build
 RUN gleam run -m gleescript
 
-## Run app
-FROM debian:bullseye
+### Uncomment for production
+# ## Run app
+# FROM debian:bullseye
 
-# Prevents apt-get from requiring user input
-ENV DEBIAN_FRONTEND=noninteractive 
+# # Prevents apt-get from requiring user input
+# ENV DEBIAN_FRONTEND=noninteractive 
 
-# Install erlang
-RUN apt-get update && apt-get install erlang -y
+# # Install erlang
+# RUN apt-get update && apt-get install erlang -y
 
-# Copy the built script
-COPY --from=build ./app ./app
+# # Copy the built script
+# COPY --from=build ./app ./app
 
 EXPOSE 8000
 
