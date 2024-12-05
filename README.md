@@ -1,9 +1,4 @@
-# foobar
-
-[![Package Version](https://img.shields.io/hexpm/v/foobar)](https://hex.pm/packages/foobar)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/foobar/)
-
-Further documentation can be found at <https://hexdocs.pm/foobar>.
+# app
 
 ## Development
 
