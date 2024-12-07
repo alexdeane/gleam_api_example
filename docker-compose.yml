@@ -9,3 +9,8 @@ services:
         GLEAM_VERSION: 1.6.2
     ports:
       - "8000:8000"
+
+  clamav:
+    image: clamav/clamav
+    ports:
+      - "3310:3310"

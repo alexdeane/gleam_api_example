@@ -33,8 +33,9 @@ packages = [
 
 [requirements]
 gleam_erlang = { version = ">= 0.32.0 and < 1.0.0" }
+gleam_http = { version = ">= 3.7.1 and < 4.0.0" }
 gleam_json = { version = ">= 2.1.0 and < 3.0.0" }
-gleam_stdlib = { version = ">= 0.34.0 and < 2.0.0" }
+gleam_stdlib = { version = ">= 0.45.0 and < 1.0.0" }
 gleescript = { version = ">= 1.4.0 and < 2.0.0" }
 gleeunit = { version = ">= 1.0.0 and < 2.0.0" }
 mist = { version = ">= 3.0.0 and < 4.0.0" }
