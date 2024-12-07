@@ -1,5 +1,5 @@
+import app/clients/clamav/client
 import app/common/response_factory
-import app/operations/clam
 import gleam/http
 import wisp
 
