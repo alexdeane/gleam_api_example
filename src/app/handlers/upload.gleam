@@ -1,4 +1,5 @@
 import app/common/response_factory
+import app/operations/clam
 import gleam/http
 import wisp
 
@@ -12,6 +13,9 @@ pub fn handle(req: wisp.Request) -> wisp.Response {
   case form_data.files {
     [#(name, file), ..] -> {
       wisp.log_info("Received file " <> name)
+
+      // Scan file for viruses
+      // let clam_hostname = os.get_env("CLAMAV_HOSTNAME")
 
       wisp.response(202)
     }

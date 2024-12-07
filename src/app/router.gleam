@@ -1,7 +1,6 @@
 import app/handlers/health_check
 import app/handlers/hello
 import app/handlers/upload
-import app/injector
 import app/web
 import wisp.{type Request, type Response}
 
