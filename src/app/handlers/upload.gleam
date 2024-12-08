@@ -1,6 +1,9 @@
-import app/clients/clamav/client
+import app/clients/clamav/clam_scan_data.{Clean, VirusDetected}
+import app/clients/clamav/client as clamav
 import app/common/response_factory
 import gleam/http
+import glenvy/env
+import simplifile
 import wisp
 
 pub fn handle(req: wisp.Request) -> wisp.Response {
@@ -14,10 +17,39 @@ pub fn handle(req: wisp.Request) -> wisp.Response {
     [#(name, file), ..] -> {
       wisp.log_info("Received file " <> name)
 
-      // Scan file for viruses
-      // let clam_hostname = os.get_env("CLAMAV_HOSTNAME")
+      let assert Ok(clam_hostname) = env.get_string("CLAMAV_HOSTNAME")
+      let assert Ok(clam_port) = env.get_int("CLAMAV_PORT")
 
-      wisp.response(202)
+      let options =
+        clamav.ClientOptions(
+          ip_address: clam_hostname,
+          port: clam_port,
+          max_stream_size: 1024,
+          max_chunk_size: 1024,
+          connection_timeout: 99_999_999,
+          reply_timeout: 200,
+        )
+
+      case simplifile.read_bits(file.path) {
+        Ok(file_bits) -> {
+          let scan_result = clamav.scan_file(options, file_bits)
+
+          case scan_result {
+            Ok(Clean) -> {
+              wisp.ok()
+            }
+            Ok(VirusDetected(details, _virus_name)) -> {
+              response_factory.create(200, [#("message", details)])
+            }
+            Error(_) -> {
+              wisp.internal_server_error()
+            }
+          }
+        }
+        Error(_) -> {
+          wisp.internal_server_error()
+        }
+      }
     }
     _ -> {
       response_factory.bad_request("File is required")

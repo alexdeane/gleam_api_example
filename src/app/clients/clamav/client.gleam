@@ -1,8 +1,10 @@
-import app/clients/clamav/clam_scan_data.{type ClamScanData, Clean}
+import app/clients/clamav/clam_scan_data.{
+  type ClamScanData, Clean, VirusDetected,
+}
 import gleam/bit_array
-import gleam/bytes_tree.{type BytesTree}
-import gleam/erlang/os
-import gleam/list
+import gleam/erlang/atom
+import gleam/io
+import gleam/json
 import mug
 import wisp
 
@@ -22,7 +24,7 @@ pub fn scan_file(
   file_contents: BitArray,
 ) -> Result(ClamScanData, mug.Error) {
   // Pad the file contents to the nearest byte
-  // This may not be necessary
+  // This may not be necessary idk yet
   let padded_file_contents = bit_array.pad_to_bytes(file_contents)
 
   // Initialize socket with a command
@@ -34,8 +36,17 @@ pub fn scan_file(
   // Receive the response
   use response_bytes <- receive_bytes(socket, options.reply_timeout)
 
-  // todo as "Parse the response from the resulting bytes"
-  Ok(Clean)
+  case bit_array.to_string(response_bytes) {
+    Ok(response_text) -> {
+      // TODO: Parse the response from the resulting bytes
+      Ok(VirusDetected("virus", response_text))
+    }
+    Error(_) -> {
+      // TODO - this error doesn't make sense - need to create
+      // our own error model
+      Error(mug.Econnaborted)
+    }
+  }
 }
 
 const end = "\u{0000}"
@@ -65,6 +76,7 @@ fn execute_clam_command(
       callback(socket)
     }
     Error(error) -> {
+      io.debug(error)
       wisp.log_error("Connection failed")
       Error(error)
     }
@@ -147,11 +159,16 @@ fn recursive_chunk_and_send(
 
       case chunking_result {
         Ok(chunk) -> {
-          // Send the network order bytes
-          // var readBytes = BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder(readByteCount)); 
-          // convert readByteCount to NetworkOrder!
-          // await clamStream.WriteAsync(readBytes, 0, readBytes.Length, cancellationToken).ConfigureAwait(false);
-          use <- send_bytes(socket, chunk)
+          // Add the network order byte to the front to indicate the packet length
+          let network_order_bytes = <<bit_array.byte_size(chunk):little>>
+
+          let wrapped_chunk =
+            network_order_bytes
+            |> bit_array.append(chunk)
+            |> bit_array.append(<<0:little>>)
+
+          // Send the chunk
+          use <- send_bytes(socket, wrapped_chunk)
 
           recursive_chunk_and_send(
             options,

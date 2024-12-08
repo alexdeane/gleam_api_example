@@ -10,7 +10,7 @@ fn error(status_code: Int, message: String) -> wisp.Response {
   create(status_code, [#("error", message)])
 }
 
-fn create(code: Int, properties: List(#(String, String))) -> wisp.Response {
+pub fn create(code: Int, properties: List(#(String, String))) -> wisp.Response {
   let as_json =
     json.object(
       properties

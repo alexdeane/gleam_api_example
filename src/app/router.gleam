@@ -10,11 +10,12 @@ pub fn route_request(req: Request) -> Response {
   use _req <- web.middleware(req)
 
   // TODO initialize db conn
+  wisp.log_info("Routing request " <> req.path)
 
   case req.path {
     "" | "/" -> health_check.handle()
-    "hello/" <> name -> hello.handle(name)
-    "upload" <> _rest -> upload.handle(req)
+    "/hello/" <> name -> hello.handle(name)
+    "/upload" | "/upload/" -> upload.handle(req)
     _ -> wisp.not_found()
   }
 }
