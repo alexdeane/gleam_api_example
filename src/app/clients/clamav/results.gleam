@@ -1,6 +1,6 @@
 import mug
 
-pub type ClamScanData {
+pub type ClamScanResult {
   Clean
   VirusDetected(infected_files: List(InfectedFile))
 }

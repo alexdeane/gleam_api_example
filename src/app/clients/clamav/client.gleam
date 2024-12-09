@@ -1,6 +1,6 @@
-import app/clients/clamav/clam_scan_data.{
-  type ClamError, type ClamScanData, CannotParseResponse, Clean, ConnectionError,
-  InfectedFile, ScanError, VirusDetected,
+import app/clients/clamav/results.{
+  type ClamError, type ClamScanResult, CannotParseResponse, Clean,
+  ConnectionError, InfectedFile, ScanError, VirusDetected,
 }
 import gleam/bit_array
 import gleam/int
@@ -22,7 +22,7 @@ pub type ClientOptions {
 pub fn scan_file(
   options: ClientOptions,
   file_content: BitArray,
-) -> Result(ClamScanData, ClamError) {
+) -> Result(ClamScanResult, ClamError) {
   // Pad the file contents to the nearest byte to be safe
   let padded_file_content = bit_array.pad_to_bytes(file_content)
 
@@ -32,8 +32,8 @@ pub fn scan_file(
       case bit_array.to_string(response) {
         Ok(response_text) -> {
           // Convert to string and parse
-          use scan_data <- parse_scan_data(response_text)
-          Ok(scan_data)
+          use scan_result <- parse_scan_result(response_text)
+          Ok(scan_result)
         }
         Error(_) -> {
           wisp.log_error("Could not parse response from ClamAV")
@@ -170,10 +170,10 @@ fn get_length_indicator(length: Int) -> BitArray {
   <<length:big-size(32)>>
 }
 
-fn parse_scan_data(
+fn parse_scan_result(
   response: String,
-  callback: fn(ClamScanData) -> Result(ClamScanData, ClamError),
-) -> Result(ClamScanData, ClamError) {
+  callback: fn(ClamScanResult) -> Result(ClamScanResult, ClamError),
+) -> Result(ClamScanResult, ClamError) {
   let formatted =
     response
     |> string.replace("\u{0000}", "")
@@ -207,7 +207,7 @@ fn parse_scan_data(
 fn parse_virus_detected(
   response: String,
   callback,
-) -> Result(ClamScanData, ClamError) {
+) -> Result(ClamScanResult, ClamError) {
   let files =
     response
     |> string.split("FOUND")
