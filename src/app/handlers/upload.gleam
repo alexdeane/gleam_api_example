@@ -25,10 +25,9 @@ pub fn handle(req: wisp.Request) -> wisp.Response {
         clamav.ClientOptions(
           ip_address: clam_hostname,
           port: clam_port,
-          max_stream_size: 1024,
-          max_chunk_size: 1024,
+          max_chunk_size: 131_072,
           connection_timeout: 99_999_999,
-          reply_timeout: 200,
+          reply_timeout: 10_000,
         )
 
       case simplifile.read_bits(file.path) {
@@ -39,8 +38,8 @@ pub fn handle(req: wisp.Request) -> wisp.Response {
             Ok(Clean) -> {
               wisp.ok()
             }
-            Ok(VirusDetected(details, _virus_name)) -> {
-              response_factory.create(200, [#("message", details)])
+            Ok(VirusDetected(_virus_name, response_text)) -> {
+              response_factory.create(200, [#("message", response_text)])
             }
             Error(_) -> {
               wisp.internal_server_error()

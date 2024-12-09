@@ -20,5 +20,5 @@ pub fn create(code: Int, properties: List(#(String, String))) -> wisp.Response {
       }),
     )
 
-  wisp.json_response(json.to_string_tree(as_json), code)
+  wisp.json_response(json.to_string_builder(as_json), code)
 }

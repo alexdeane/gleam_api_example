@@ -12,6 +12,8 @@ services:
     environment:
       CLAMAV_HOSTNAME: clamav
       CLAMAV_PORT: 3310
+    depends_on:
+      - clamav
 
   clamav:
     image: clamav/clamav

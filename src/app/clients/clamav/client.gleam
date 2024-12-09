@@ -11,7 +11,6 @@ pub type ClientOptions {
   ClientOptions(
     ip_address: String,
     port: Int,
-    max_stream_size: Int,
     max_chunk_size: Int,
     connection_timeout: Int,
     reply_timeout: Int,
@@ -29,17 +28,17 @@ pub fn scan_file(
   // Initialize socket with a command
   use socket <- execute_clam_command(options, "INSTREAM")
 
-  wisp.log_info(":: socket acquired")
+  wisp.log_info(":: Socket acquired")
 
   // Send the file contents
-  use <- chunk_and_send_file(options, socket, padded_file_contents)
+  use <- send_file(socket, padded_file_contents)
 
-  wisp.log_info(":: sent file")
+  wisp.log_info(":: File upload complete")
 
   // Receive the response
   use response_bytes <- receive_bytes(socket, options.reply_timeout)
 
-  wisp.log_info(":: received response")
+  wisp.log_info(":: Received response")
 
   case bit_array.to_string(response_bytes) {
     Ok(response_text) -> {
@@ -54,7 +53,9 @@ pub fn scan_file(
   }
 }
 
-const end = "\u{0000}"
+const command_end = <<0:little-size(8)>>
+
+const file_end = <<0:little-size(32)>>
 
 fn execute_clam_command(
   options: ClientOptions,
@@ -69,10 +70,11 @@ fn execute_clam_command(
 
   case socket_result {
     Ok(socket) -> {
-      // Create the full ommand and convert it to bytes
+      // Create the full command and convert it to bytes
       let command_bytes =
-        { "z" <> command <> end }
+        { "z" <> command }
         |> bit_array.from_string
+        |> bit_array.append(command_end)
 
       // Issue the command
       use <- send_bytes(socket, command_bytes)
@@ -114,83 +116,117 @@ fn receive_bytes(
       callback(bits)
     }
     Error(error) -> {
+      io.debug(error)
       wisp.log_error("Failed to receive byte packet")
       Error(error)
     }
   }
 }
 
-fn chunk_and_send_file(
-  options: ClientOptions,
+fn send_file(
   socket: mug.Socket,
   file_contents: BitArray,
   callback: fn() -> Result(ClamScanData, mug.Error),
 ) -> Result(ClamScanData, mug.Error) {
   let file_bits = bit_array.bit_size(file_contents)
 
-  wisp.log_info(
-    ":: Uploading file of size " <> int.to_string(file_bits) <> " bits",
-  )
+  wisp.log_info(":: Uploading file of size " <> int.to_string(file_bits) <> "b")
 
-  let send_result =
-    recursive_chunk_and_send(options, socket, file_contents, file_bits, 0)
+  // let send_result =
+  //   recursive_chunk_and_send(
+  //     options.max_chunk_size,
+  //     socket,
+  //     file_contents,
+  //     file_bits,
+  //     0,
+  //   )
 
-  case send_result {
-    Ok(_) -> {
-      callback()
-    }
-    Error(error) -> {
-      io.debug(error)
-      wisp.log_error("Failed to chunk and send file")
-      Error(error)
-    }
-  }
+  // Add the network order byte to the front to indicate the packet length
+  let network_order_bytes = <<bit_array.byte_size(file_contents):big-size(32)>>
+
+  io.debug(bit_array.byte_size(file_contents))
+
+  let wrapped_chunk =
+    network_order_bytes
+    |> bit_array.append(file_contents)
+    |> bit_array.append(file_end)
+
+  use <- send_bytes(socket, wrapped_chunk)
+  callback()
+  // case send_result {
+  //   Ok(_) -> {
+  //     // Indicate end of the file
+  //     use <- send_bytes(socket, file_end)
+
+  //     callback()
+  //   }
+  //   Error(error) -> {
+  //     io.debug(error)
+  //     wisp.log_error("Failed to chunk and send file")
+  //     Error(error)
+  //   }
+  // }
 }
 
 fn recursive_chunk_and_send(
-  options: ClientOptions,
+  max_chunk_size: Int,
   socket: mug.Socket,
   file_contents: BitArray,
-  total_bits: Int,
+  remaining_bits: Int,
   index: Int,
 ) -> Result(Nil, mug.Error) {
-  wisp.log_info(":: Sending packet " <> int.to_string(index))
-
-  case index < total_bits {
+  case remaining_bits > 0 {
     True -> {
-      let take = case index + options.max_chunk_size <= total_bits {
-        True -> options.max_chunk_size
-        False -> total_bits - index
+      // If what's left is less than the max, take only that
+      let take = case max_chunk_size <= remaining_bits {
+        True -> max_chunk_size
+        False -> remaining_bits
       }
 
-      io.debug(total_bits)
-      io.debug(index)
-      io.debug(take)
+      wisp.log_info(
+        ":: Sending packet "
+        <> int.to_string(index)
+        <> " ("
+        <> int.to_string(take)
+        <> "b)",
+      )
 
       let chunking_result =
-        bit_array.slice(from: file_contents, at: index, take: take)
+        bit_array.slice(
+          from: file_contents,
+          // These params are in bytes
+          at: { index * max_chunk_size } / 8,
+          take: take / 8,
+        )
 
       case chunking_result {
         Ok(chunk) -> {
           // Add the network order byte to the front to indicate the packet length
-          let network_order_bytes = <<bit_array.byte_size(chunk):little>>
+          let network_order_bytes = <<
+            bit_array.byte_size(chunk):little-size(32),
+          >>
 
           let wrapped_chunk =
             network_order_bytes
             |> bit_array.append(chunk)
-            |> bit_array.append(<<0:little>>)
 
           // Send the chunk
           use <- send_bytes(socket, wrapped_chunk)
 
-          wisp.log_info(":: Finished sending packet")
+          let new_remaining_bits = remaining_bits - take
+
+          wisp.log_info(
+            ":: Finished sending packet ("
+            <> new_remaining_bits |> int.to_string()
+            <> "b remaining)",
+          )
 
           recursive_chunk_and_send(
-            options,
+            max_chunk_size,
             socket,
             file_contents,
-            total_bits,
-            index + options.max_chunk_size,
+            new_remaining_bits,
+            index + 1,
           )
         }
         Error(Nil) -> {
