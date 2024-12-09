@@ -10,8 +10,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - CLAMAV_HOSTNAME=localhost
-      - CLAMAV_PORT=3310
+      CLAMAV_HOSTNAME: clamav
+      CLAMAV_PORT: 3310
 
   clamav:
     image: clamav/clamav

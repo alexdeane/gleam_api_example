@@ -2,6 +2,7 @@ import app/clients/clamav/clam_scan_data.{Clean, VirusDetected}
 import app/clients/clamav/client as clamav
 import app/common/response_factory
 import gleam/http
+import gleam/io
 import glenvy/env
 import simplifile
 import wisp

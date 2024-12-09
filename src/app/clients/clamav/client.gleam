@@ -2,9 +2,8 @@ import app/clients/clamav/clam_scan_data.{
   type ClamScanData, Clean, VirusDetected,
 }
 import gleam/bit_array
-import gleam/erlang/atom
+import gleam/int
 import gleam/io
-import gleam/json
 import mug
 import wisp
 
@@ -30,11 +29,17 @@ pub fn scan_file(
   // Initialize socket with a command
   use socket <- execute_clam_command(options, "INSTREAM")
 
+  wisp.log_info(":: socket acquired")
+
   // Send the file contents
   use <- chunk_and_send_file(options, socket, padded_file_contents)
 
+  wisp.log_info(":: sent file")
+
   // Receive the response
   use response_bytes <- receive_bytes(socket, options.reply_timeout)
+
+  wisp.log_info(":: received response")
 
   case bit_array.to_string(response_bytes) {
     Ok(response_text) -> {
@@ -121,20 +126,21 @@ fn chunk_and_send_file(
   file_contents: BitArray,
   callback: fn() -> Result(ClamScanData, mug.Error),
 ) -> Result(ClamScanData, mug.Error) {
+  let file_bits = bit_array.bit_size(file_contents)
+
+  wisp.log_info(
+    ":: Uploading file of size " <> int.to_string(file_bits) <> " bits",
+  )
+
   let send_result =
-    recursive_chunk_and_send(
-      options,
-      socket,
-      file_contents,
-      bit_array.bit_size(file_contents),
-      0,
-    )
+    recursive_chunk_and_send(options, socket, file_contents, file_bits, 0)
 
   case send_result {
     Ok(_) -> {
       callback()
     }
     Error(error) -> {
+      io.debug(error)
       wisp.log_error("Failed to chunk and send file")
       Error(error)
     }
@@ -148,14 +154,21 @@ fn recursive_chunk_and_send(
   total_bits: Int,
   index: Int,
 ) -> Result(Nil, mug.Error) {
+  wisp.log_info(":: Sending packet " <> int.to_string(index))
+
   case index < total_bits {
     True -> {
+      let take = case index + options.max_chunk_size <= total_bits {
+        True -> options.max_chunk_size
+        False -> total_bits - index
+      }
+
+      io.debug(total_bits)
+      io.debug(index)
+      io.debug(take)
+
       let chunking_result =
-        bit_array.slice(
-          from: file_contents,
-          at: index,
-          take: options.max_chunk_size,
-        )
+        bit_array.slice(from: file_contents, at: index, take: take)
 
       case chunking_result {
         Ok(chunk) -> {
@@ -170,6 +183,8 @@ fn recursive_chunk_and_send(
           // Send the chunk
           use <- send_bytes(socket, wrapped_chunk)
 
+          wisp.log_info(":: Finished sending packet")
+
           recursive_chunk_and_send(
             options,
             socket,
@@ -178,10 +193,10 @@ fn recursive_chunk_and_send(
             index + options.max_chunk_size,
           )
         }
-        Error(_) -> {
-          // TODO - this error doesn't make sense - need to create
+        Error(Nil) -> {
+          // TzDO - this error doesn't make sense - need to create
           // our own error model
-          Error(mug.Econnaborted)
+          Error(mug.Eacces)
         }
       }
     }
