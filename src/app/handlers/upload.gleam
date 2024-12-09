@@ -3,6 +3,8 @@ import app/clients/clamav/client as clamav
 import app/common/response_factory
 import gleam/http
 import gleam/io
+import gleam/json
+import gleam/list
 import glenvy/env
 import simplifile
 import wisp
@@ -32,18 +34,29 @@ pub fn handle(req: wisp.Request) -> wisp.Response {
 
       case simplifile.read_bits(file.path) {
         Ok(file_bits) -> {
-          let scan_result = clamav.scan_file(options, file_bits)
+          case clamav.scan_file(options, file_bits) {
+            Ok(Clean) -> response_factory.create(200, [#("result", "Clean")])
+            Ok(VirusDetected(infected_files)) -> {
+              let files =
+                infected_files
+                |> list.map(fn(infected_file) {
+                  [
+                    #("fileName", json.string(infected_file.file_name)),
+                    #("virusName", json.string(infected_file.virus_name)),
+                  ]
+                })
 
-          case scan_result {
-            Ok(Clean) -> {
-              wisp.ok()
+              let body =
+                json.object([
+                  #("result", json.string("VirusDetected")),
+                  #("infectedFiles", json.array(from: files, of: json.object)),
+                ])
+                |> json.to_string_builder()
+
+              wisp.json_response(body, 200)
             }
-            Ok(VirusDetected(_virus_name, response_text)) -> {
-              response_factory.create(200, [#("message", response_text)])
-            }
-            Error(_) -> {
-              wisp.internal_server_error()
-            }
+            // TODO: more error info
+            _ -> response_factory.create(502, [#("result", "ScanError")])
           }
         }
         Error(_) -> {

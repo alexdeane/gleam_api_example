@@ -1,9 +1,16 @@
+import mug
+
 pub type ClamScanData {
   Clean
-  VirusDetected(virus_name: String, details: String)
+  VirusDetected(infected_files: List(InfectedFile))
+}
+
+pub type InfectedFile {
+  InfectedFile(file_name: String, virus_name: String)
 }
 
 pub type ClamError {
-  ConnectionFailed
-  Timeout
+  ScanError(error: String)
+  CannotParseResponse(response: String)
+  ConnectionError(error: mug.Error)
 }
