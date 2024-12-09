@@ -128,116 +128,28 @@ fn send_file(
   file_contents: BitArray,
   callback: fn() -> Result(ClamScanData, mug.Error),
 ) -> Result(ClamScanData, mug.Error) {
-  let file_bits = bit_array.bit_size(file_contents)
+  let byte_size = bit_array.byte_size(file_contents)
 
-  wisp.log_info(":: Uploading file of size " <> int.to_string(file_bits) <> "b")
-
-  // let send_result =
-  //   recursive_chunk_and_send(
-  //     options.max_chunk_size,
-  //     socket,
-  //     file_contents,
-  //     file_bits,
-  //     0,
-  //   )
-
-  // Add the network order byte to the front to indicate the packet length
-  let network_order_bytes = <<bit_array.byte_size(file_contents):big-size(32)>>
-
-  io.debug(bit_array.byte_size(file_contents))
-
-  let wrapped_chunk =
-    network_order_bytes
+  let packet =
+    byte_size
+    |> get_length_indicator()
     |> bit_array.append(file_contents)
     |> bit_array.append(file_end)
 
-  use <- send_bytes(socket, wrapped_chunk)
-  callback()
-  // case send_result {
-  //   Ok(_) -> {
-  //     // Indicate end of the file
-  //     use <- send_bytes(socket, file_end)
+  wisp.log_info(
+    ":: Uploading file of size "
+    <> byte_size |> int.to_string()
+    <> "B. (Total packet size "
+    <> packet |> bit_array.byte_size() |> int.to_string()
+    <> "B)",
+  )
 
-  //     callback()
-  //   }
-  //   Error(error) -> {
-  //     io.debug(error)
-  //     wisp.log_error("Failed to chunk and send file")
-  //     Error(error)
-  //   }
-  // }
+  use <- send_bytes(socket, packet)
+
+  callback()
 }
 
-fn recursive_chunk_and_send(
-  max_chunk_size: Int,
-  socket: mug.Socket,
-  file_contents: BitArray,
-  remaining_bits: Int,
-  index: Int,
-) -> Result(Nil, mug.Error) {
-  case remaining_bits > 0 {
-    True -> {
-      // If what's left is less than the max, take only that
-      let take = case max_chunk_size <= remaining_bits {
-        True -> max_chunk_size
-        False -> remaining_bits
-      }
-
-      wisp.log_info(
-        ":: Sending packet "
-        <> int.to_string(index)
-        <> " ("
-        <> int.to_string(take)
-        <> "b)",
-      )
-
-      let chunking_result =
-        bit_array.slice(
-          from: file_contents,
-          // These params are in bytes
-          at: { index * max_chunk_size } / 8,
-          take: take / 8,
-        )
-
-      case chunking_result {
-        Ok(chunk) -> {
-          // Add the network order byte to the front to indicate the packet length
-          let network_order_bytes = <<
-            bit_array.byte_size(chunk):little-size(32),
-          >>
-
-          let wrapped_chunk =
-            network_order_bytes
-            |> bit_array.append(chunk)
-
-          // Send the chunk
-          use <- send_bytes(socket, wrapped_chunk)
-
-          let new_remaining_bits = remaining_bits - take
-
-          wisp.log_info(
-            ":: Finished sending packet ("
-            <> new_remaining_bits |> int.to_string()
-            <> "b remaining)",
-          )
-
-          recursive_chunk_and_send(
-            max_chunk_size,
-            socket,
-            file_contents,
-            new_remaining_bits,
-            index + 1,
-          )
-        }
-        Error(Nil) -> {
-          // TzDO - this error doesn't make sense - need to create
-          // our own error model
-          Error(mug.Eacces)
-        }
-      }
-    }
-    False -> {
-      Ok(Nil)
-    }
-  }
+fn get_length_indicator(length: Int) -> BitArray {
+  // Length indicator shall be 4 bytes in network byte order (Big Endian)
+  <<length:big-size(32)>>
 }
