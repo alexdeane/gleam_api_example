@@ -1,8 +1,8 @@
-import app/clients/clamav/clam_scan_data.{Clean, VirusDetected}
 import app/clients/clamav/client as clamav
+import app/clients/clamav/client_options
+import app/clients/clamav/results.{Clean, VirusDetected}
 import app/common/response_factory
 import gleam/http
-import gleam/io
 import gleam/json
 import gleam/list
 import glenvy/env
@@ -24,8 +24,8 @@ pub fn handle(req: wisp.Request) -> wisp.Response {
       let assert Ok(clam_port) = env.get_int("CLAMAV_PORT")
 
       let options =
-        clamav.ClientOptions(
-          ip_address: clam_hostname,
+        client_options.ClientOptions(
+          host: clam_hostname,
           port: clam_port,
           max_chunk_size: 131_072,
           connection_timeout: 99_999_999,
@@ -34,7 +34,7 @@ pub fn handle(req: wisp.Request) -> wisp.Response {
 
       case simplifile.read_bits(file.path) {
         Ok(file_bits) -> {
-          case clamav.scan_file(options, file_bits) {
+          case clamav.instream(options, file_bits) {
             Ok(Clean) -> response_factory.create(200, [#("result", "Clean")])
             Ok(VirusDetected(infected_files)) -> {
               let files =
