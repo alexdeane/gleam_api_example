@@ -42,6 +42,7 @@ COPY ./gleam.toml /gleam.toml
 COPY ./manifest.toml /manifest.toml
 COPY ./src/ /src
 
+RUN gleam deps download
 RUN gleam build
 RUN gleam run -m gleescript
 

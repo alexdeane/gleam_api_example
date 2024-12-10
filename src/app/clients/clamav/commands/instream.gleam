@@ -11,8 +11,10 @@ import gleam/string
 import mug
 import wisp
 
+// Bytes that indicate the end of the file upload
 const file_end = <<0:little-size(32)>>
 
+/// Scan a file in memory
 pub fn instream(
   options: ClientOptions,
   file_content: BitArray,
