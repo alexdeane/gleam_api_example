@@ -10,7 +10,7 @@ pub fn execute_command(
   command: String,
   callback: fn(mug.Socket) -> Result(a, mug.Error),
 ) -> Result(a, mug.Error) {
-  // TODO - research connection pooling (may not be necessary w the BEAM)
+  // TODO - research connection pooling (may not be necessary)
   use socket <- tcp.connect(options)
 
   // Create the full command and convert it to bytes

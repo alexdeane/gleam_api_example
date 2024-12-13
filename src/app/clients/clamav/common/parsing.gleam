@@ -10,28 +10,22 @@ pub fn parse_scan_result(
   response: String,
   callback: fn(ClamScanResult) -> Result(ClamScanResult, ClamError),
 ) -> Result(ClamScanResult, ClamError) {
-  let formatted =
-    response
-    |> string.replace("\u{0000}", "")
-
-  let formatted_lower =
-    formatted
-    |> string.lowercase()
+  let formatted_lower = response |> string.lowercase
 
   case formatted_lower |> string.ends_with("ok") {
     True -> callback(Clean)
     False -> {
       case formatted_lower |> string.ends_with("error") {
-        True -> Error(ScanError(formatted))
+        True -> Error(ScanError(response))
         False -> {
           case formatted_lower |> string.ends_with("found") {
             True -> {
-              use virus_detected <- parse_virus_detected(formatted)
+              use virus_detected <- parse_virus_detected(response)
               callback(virus_detected)
             }
             False -> {
               wisp.log_error("Could not parse response")
-              Error(CannotParseResponse(formatted))
+              Error(CannotParseResponse(response))
             }
           }
         }

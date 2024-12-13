@@ -40,9 +40,11 @@ ENV PATH=$PATH:/root/.cache/rebar3/bin
 
 COPY ./gleam.toml /gleam.toml
 COPY ./manifest.toml /manifest.toml
-COPY ./src/ /src
 
 RUN gleam deps download
+
+COPY ./src/ /src
+
 RUN gleam build
 RUN gleam run -m gleescript
 

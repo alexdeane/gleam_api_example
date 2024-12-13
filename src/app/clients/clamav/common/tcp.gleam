@@ -1,4 +1,5 @@
 import app/clients/clamav/client_options.{type ClientOptions}
+import gleam/bit_array
 import gleam/string
 import mug
 import wisp
@@ -43,7 +44,15 @@ pub fn receive_bytes(
   callback: fn(BitArray) -> Result(a, mug.Error),
 ) -> Result(a, mug.Error) {
   case mug.receive(socket, timeout_milliseconds) {
-    Ok(bits) -> callback(bits)
+    Ok(bits) -> {
+      let byte_size = bit_array.byte_size(bits)
+
+      // Chop off the response end byte
+      case bits |> bit_array.slice(0, byte_size - 1) {
+        Ok(sliced_bits) -> sliced_bits |> callback
+        Error(Nil) -> Error(mug.Einval)
+      }
+    }
     Error(error) -> {
       wisp.log_error(
         "Failed to receive byte packet: " <> error |> string.inspect,
