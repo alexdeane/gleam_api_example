@@ -1,15 +1,13 @@
-import app/clients/clamav/client as clamav
-import app/clients/clamav/client_options
-import app/clients/clamav/results.{Clean, VirusDetected}
+import app/clients/clamav/clamav.{Clean, VirusDetected}
+import app/clients/clamav/client_options.{type ClamAvClientOptions}
 import app/common/response_factory
 import gleam/http
 import gleam/json
 import gleam/list
-import glenvy/env
 import simplifile
 import wisp
 
-pub fn handle(req: wisp.Request) -> wisp.Response {
+pub fn handle(req: wisp.Request, options: ClamAvClientOptions) -> wisp.Response {
   // Assert that the request is a POST request
   use <- wisp.require_method(req, http.Post)
 
@@ -19,18 +17,6 @@ pub fn handle(req: wisp.Request) -> wisp.Response {
   case form_data.files {
     [#(name, file), ..] -> {
       wisp.log_info("Received file " <> name)
-
-      let assert Ok(clam_hostname) = env.get_string("CLAMAV_HOSTNAME")
-      let assert Ok(clam_port) = env.get_int("CLAMAV_PORT")
-
-      let options =
-        client_options.ClientOptions(
-          host: clam_hostname,
-          port: clam_port,
-          max_chunk_size: 131_072,
-          connection_timeout: 99_999_999,
-          reply_timeout: 10_000,
-        )
 
       case simplifile.read_bits(file.path) {
         Ok(file_bits) -> {
@@ -51,7 +37,7 @@ pub fn handle(req: wisp.Request) -> wisp.Response {
                   #("result", json.string("VirusDetected")),
                   #("infectedFiles", json.array(from: files, of: json.object)),
                 ])
-                |> json.to_string_builder()
+                |> json.to_string_builder
 
               wisp.json_response(body, 200)
             }

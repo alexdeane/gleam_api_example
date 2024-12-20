@@ -1,11 +1,11 @@
-import app/clients/clamav/client_options.{type ClientOptions}
+import app/clients/clamav/client_options.{type ClamAvClientOptions}
 import gleam/bit_array
 import gleam/string
 import mug
 import wisp
 
 pub fn connect(
-  options: ClientOptions,
+  options: ClamAvClientOptions,
   callback: fn(mug.Socket) -> Result(a, mug.Error),
 ) -> Result(a, mug.Error) {
   let socket =

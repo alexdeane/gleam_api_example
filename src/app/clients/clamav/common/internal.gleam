@@ -1,4 +1,4 @@
-import app/clients/clamav/client_options.{type ClientOptions}
+import app/clients/clamav/client_options.{type ClamAvClientOptions}
 import app/clients/clamav/common/tcp
 import gleam/bit_array
 import mug
@@ -6,7 +6,7 @@ import mug
 const command_end = <<0:little-size(8)>>
 
 pub fn execute_command(
-  options: ClientOptions,
+  options: ClamAvClientOptions,
   command: String,
   callback: fn(mug.Socket) -> Result(a, mug.Error),
 ) -> Result(a, mug.Error) {

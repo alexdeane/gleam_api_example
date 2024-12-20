@@ -17,8 +17,8 @@ pub fn route_request(req: Request) -> Response {
   let assert Ok(clam_hostname) = env.get_string("CLAMAV_HOSTNAME")
   let assert Ok(clam_port) = env.get_int("CLAMAV_PORT")
 
-  let options =
-    client_options.ClientOptions(
+  let clamav_options =
+    client_options.ClamAvClientOptions(
       host: clam_hostname,
       port: clam_port,
       max_chunk_size: 131_072,
@@ -27,9 +27,9 @@ pub fn route_request(req: Request) -> Response {
     )
 
   case req.path {
-    "" | "/" -> health_check.handle(options)
+    "" | "/" -> health_check.handle(clamav_options)
     "/hello/" <> name -> hello.handle(name)
-    "/upload" | "/upload/" -> upload.handle(req)
+    "/upload" | "/upload/" -> upload.handle(req, clamav_options)
     _ -> wisp.not_found()
   }
 }
