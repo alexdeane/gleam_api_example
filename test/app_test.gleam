@@ -10,7 +10,7 @@ pub fn main() {
 
 // gleeunit test functions end in `_test`
 pub fn health_check_test() {
-  // health_check.handle()/
-  // |> should.equal(wisp.ok())
+  health_check.handle()
+  |> should.equal(wisp.ok())
   1
 }
